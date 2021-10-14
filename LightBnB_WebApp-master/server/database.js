@@ -61,10 +61,10 @@ exports.addUser = addUser;
 
 /**
  * Get all reservations for a single user.
- * @param {string} guest_id The id of the user.
+ * @param {string} guestId The id of the user.
  * @return {Promise<[{}]>} A promise to the reservations.
  */
-const getAllReservations = function(guest_id, limit = 10) {
+const getAllReservations = function(guestId, limit = 10) {
   return pool
     .query(`
     SELECT reservations.*, properties.*, avg(rating) as average_rating
@@ -77,7 +77,7 @@ const getAllReservations = function(guest_id, limit = 10) {
       ORDER BY reservations.start_date
       LIMIT $2;
     `,
-    [guest_id, limit])
+    [guestId, limit])
     .then(res => res.rows)
     .catch(null);
 };
@@ -92,9 +92,27 @@ exports.getAllReservations = getAllReservations;
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = function(options, limit = 10) {
+  const insertParam = function(param, refArr, strBef, strAft) {
+    if (!param) return "";
+    if (strBef.slice(strBef.length - 4) === 'LIKE') param = `%${param}%`;
+    refArr.push(param);
+    return `${strBef} $${refArr.length} ${strAft}`;
+  };
+  const params = [];
+  let queryString = `SELECT properties.*, avg(rating) AS average_rating
+      FROM properties
+      JOIN property_reviews ON properties.id = property_id
+      ${insertParam(options.city, params, 'WHERE city LIKE','')}
+      ${insertParam(options.owner_id, params, params.length ? 'AND owner_id =' : 'WHERE owner_id =','')}
+      ${insertParam(options.minimum_price_per_night * 100, params, params.length ? 'AND cost_per_night >=' : 'WHERE cost_per_night >=','')}
+      ${insertParam(options.maximum_price_per_night * 100, params, params.length ? 'AND cost_per_night <=' : 'WHERE cost_per_night <=','')}
+      GROUP BY properties.id
+      ${insertParam(options.minimum_rating, params, 'HAVING avg(rating) >=','')}
+      ${insertParam(limit, params, 'LIMIT','')};`;
+      
   return pool
-    .query(`SELECT * FROM properties LIMIT $1`, [limit])
-    .then((result) => result.rows)
+    .query(queryString, params)
+    .then(res => res.rows)
     .catch((err) => err.message);
 };
 exports.getAllProperties = getAllProperties;
