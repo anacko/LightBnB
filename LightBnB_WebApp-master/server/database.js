@@ -1,6 +1,3 @@
-const properties = require('./json/properties.json');
-const users = require('./json/users.json');
-
 const { Pool } = require('pg');
 
 const pool = new Pool({
@@ -123,9 +120,25 @@ exports.getAllProperties = getAllProperties;
  * @return {Promise<{}>} A promise to the property.
  */
 const addProperty = function(property) {
-  const propertyId = Object.keys(properties).length + 1;
-  property.id = propertyId;
-  properties[propertyId] = property;
-  return Promise.resolve(property);
+  // const propertyId = Object.keys(properties).length + 1;
+  // property.id = propertyId;
+  // properties[propertyId] = property;
+  // return Promise.resolve(property);
+  const insertValue = function(value, refArr) {
+    refArr.push(value);
+    return `$${refArr.length}`;
+  };
+  const params = [];
+  const queryString = `
+  INSERT INTO properties (owner_id, title, description, thumbnail_photo_url, cover_photo_url, cost_per_night, street, city, province, post_code, country, parking_spaces, number_of_bathrooms, number_of_bedrooms) 
+  VALUES
+  (${insertValue(property.owner_id, params)},${insertValue(property.title, params)},${insertValue(property.description, params)},
+  ${insertValue(property.thumbnail_photo_url, params)}, ${insertValue(property.cover_photo_url, params)},
+  ${insertValue(property.cost_per_night, params)}, ${insertValue(property.street, params)}, ${insertValue(property.city, params)},
+  ${insertValue(property.province, params)}, ${insertValue(property.post_code, params)}, ${insertValue(property.country, params)}, 
+  ${insertValue(property.parking_spaces, params)}, ${insertValue(property.number_of_bathrooms, params)}, 
+  ${insertValue(property.number_of_bedrooms, params)})
+  RETURNING *;`;
+  return pool.query(queryString, params); // <<- only the promise
 };
 exports.addProperty = addProperty;
